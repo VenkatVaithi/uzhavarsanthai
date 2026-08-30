@@ -70,7 +70,7 @@ export default function FarmerRegister() {
               <CheckCircle2 className="w-12 h-12 text-primary" />
             </div>
           </div>
-          <h1 className="font-serif text-3xl font-bold text-foreground mb-3">Welcome to Farmers Market!</h1>
+          <h1 className="font-serif text-3xl font-bold text-foreground mb-3">Welcome to Uzhavar Santhai!</h1>
           <p className="text-muted-foreground mb-8">
             <span className="font-medium text-foreground">{form.name}</span> has been registered. You can now view your farmer profile and start adding products.
           </p>
@@ -94,7 +94,7 @@ export default function FarmerRegister() {
           <div className="bg-primary/10 rounded-full p-2">
             <Leaf className="w-5 h-5 text-primary" />
           </div>
-          <span className="text-sm font-medium text-primary uppercase tracking-widest">Sell on Farmers Market</span>
+          <span className="text-sm font-medium text-primary uppercase tracking-widest">Sell on Uzhavar Santhai</span>
         </div>
         <h1 className="font-serif text-4xl font-bold text-foreground mb-2">Register as a Farmer</h1>
         <p className="text-muted-foreground mb-10">
