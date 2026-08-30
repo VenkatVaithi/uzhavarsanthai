@@ -49,7 +49,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <div className="bg-primary text-primary-foreground p-1.5 rounded-md group-hover:bg-primary/90 transition-colors">
                 <Leaf className="w-5 h-5" />
               </div>
-              <span className="font-serif font-bold text-xl text-foreground tracking-tight">Farmers Market</span>
+              <span className="font-serif font-bold text-xl text-foreground tracking-tight">Uzhavar Santhai</span>
             </Link>
             
             <nav className="hidden md:flex items-center gap-6">
@@ -226,7 +226,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <div>
               <Link href="/" className="flex items-center gap-2 justify-center md:justify-start mb-4">
                 <Leaf className="w-5 h-5 text-primary" />
-                <span className="font-serif font-bold text-xl text-foreground">Farmers Market</span>
+                <span className="font-serif font-bold text-xl text-foreground">Uzhavar Santhai</span>
               </Link>
               <p className="text-muted-foreground text-sm max-w-xs mx-auto md:mx-0">
                 Fresh, local, and abundant. Connecting communities with the people who grow their food.
@@ -248,7 +248,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <div className="border-t border-border mt-12 pt-8 text-center text-sm text-muted-foreground">
-            <p>&copy; {new Date().getFullYear()} Farmers Market. Built with care.</p>
+            <p>&copy; {new Date().getFullYear()} Uzhavar Santhai. Built with care.</p>
           </div>
         </div>
       </footer>
