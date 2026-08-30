@@ -34,7 +34,7 @@ export default function Login() {
               </div>
             </div>
             <h1 className="font-serif text-3xl font-bold text-foreground mb-2">
-              Sign in to Farmers Market
+              Sign in to Uzhavar Santhai
             </h1>
             <p className="text-muted-foreground">
               Tell us who you are so we can get you to the right place.
