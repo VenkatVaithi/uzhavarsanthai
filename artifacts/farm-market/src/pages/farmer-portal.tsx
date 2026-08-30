@@ -127,7 +127,7 @@ export default function FarmerPortal() {
             {
               icon: <Leaf className="w-5 h-5 text-primary" />,
               title: "Back to Home",
-              desc: "Return to the Farmers Market homepage.",
+              desc: "Return to the Uzhavar Santhai homepage.",
               action: () => navigate("/"),
               label: "Go home",
             },
