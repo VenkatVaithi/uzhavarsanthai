@@ -21,6 +21,8 @@ export * from './handleBrowserLoginCallbackParams';
 export * from './healthStatus';
 export * from './listOrdersParams';
 export * from './listProductsParams';
+export * from './localLoginInput';
+export * from './localRegistrationInput';
 export * from './logoutSuccess';
 export * from './marketStats';
 export * from './mobileTokenExchangeRequest';

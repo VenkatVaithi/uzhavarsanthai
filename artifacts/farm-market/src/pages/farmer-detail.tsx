@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, MapPin, Sprout, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "../context/cart";
+import { trackEvent } from "../lib/analytics";
 
 export default function FarmerDetail() {
   const { id } = useParams<{ id: string }>();
@@ -90,7 +91,19 @@ export default function FarmerDetail() {
                   <p className="text-xs text-secondary font-medium mb-3">{product.categoryName}</p>
                   <div className="mt-auto flex items-center justify-between pt-3 border-t border-border">
                     <span className="font-serif font-bold text-foreground text-sm">${product.price.toFixed(2)}<span className="text-xs font-sans font-normal text-muted-foreground">/{product.unit}</span></span>
-                    <Button size="sm" disabled={!product.inStock} onClick={() => addItem(product, 1)} className="rounded-full h-7 px-2.5 text-xs gap-1">
+                    <Button
+                      size="sm"
+                      disabled={!product.inStock}
+                      onClick={() => {
+                        addItem(product, 1);
+                        trackEvent("product_added_to_cart", {
+                          product_id: product.id,
+                          quantity: 1,
+                          source: "farmer_detail",
+                        });
+                      }}
+                      className="rounded-full h-7 px-2.5 text-xs gap-1"
+                    >
                       <ShoppingBag className="w-3 h-3" /> Add
                     </Button>
                   </div>

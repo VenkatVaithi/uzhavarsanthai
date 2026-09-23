@@ -27,6 +27,53 @@ export const GetCurrentAuthUserResponse = zod.object({
 
 
 /**
+ * @summary Register an account with email and password
+ */
+export const registerLocalAccountBodyFirstNameMax = 80;
+
+export const registerLocalAccountBodyLastNameMax = 80;
+
+export const registerLocalAccountBodyEmailMax = 320;
+
+export const registerLocalAccountBodyPasswordMin = 10;
+export const registerLocalAccountBodyPasswordMax = 128;
+
+
+
+export const RegisterLocalAccountBody = zod.object({
+  "firstName": zod.string().min(1).max(registerLocalAccountBodyFirstNameMax),
+  "lastName": zod.string().max(registerLocalAccountBodyLastNameMax).optional(),
+  "email": zod.string().email().max(registerLocalAccountBodyEmailMax),
+  "password": zod.string().min(registerLocalAccountBodyPasswordMin).max(registerLocalAccountBodyPasswordMax)
+})
+
+
+/**
+ * @summary Authenticate with email and password
+ */
+export const loginLocalAccountBodyEmailMax = 320;
+
+export const loginLocalAccountBodyPasswordMax = 128;
+
+
+
+export const LoginLocalAccountBody = zod.object({
+  "email": zod.string().email().max(loginLocalAccountBodyEmailMax),
+  "password": zod.string().min(1).max(loginLocalAccountBodyPasswordMax)
+})
+
+export const LoginLocalAccountResponse = zod.object({
+  "user": zod.union([zod.object({
+  "id": zod.string(),
+  "email": zod.string().email().nullable(),
+  "firstName": zod.string().nullable(),
+  "lastName": zod.string().nullable(),
+  "profileImageUrl": zod.string().nullable()
+}),zod.null()])
+})
+
+
+/**
  * @summary Start the browser OIDC login flow
  */
 export const BeginBrowserLoginQueryParams = zod.object({
@@ -45,7 +92,7 @@ export const HandleBrowserLoginCallbackQueryParams = zod.object({
 
 
 /**
- * @summary Clear the session and begin OIDC logout
+ * @summary Clear the current local or OIDC session
  */
 export const LogoutBrowserSessionHeader = zod.object({
   "Authorization": zod.string().optional().describe('Opaque session token — `Bearer <sid>`.')

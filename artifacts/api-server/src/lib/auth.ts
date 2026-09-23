@@ -11,7 +11,8 @@ export const SESSION_TTL = 7 * 24 * 60 * 60 * 1000;
 
 export interface SessionData {
   user: AuthUser;
-  access_token: string;
+  provider?: "replit" | "local";
+  access_token?: string;
   refresh_token?: string;
   expires_at?: number;
 }

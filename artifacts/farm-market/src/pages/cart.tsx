@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCart } from "../context/cart";
+import { trackEvent } from "../lib/analytics";
 
 export default function Cart() {
   const { items, removeItem, updateQuantity, clearCart, totalPrice } = useCart();
@@ -47,6 +48,11 @@ export default function Cart() {
         },
       });
       clearCart();
+      trackEvent("order_placed", {
+        order_id: order.id,
+        item_count: order.items.length,
+        total_amount: order.totalAmount,
+      });
       setPlacedOrder(order);
       setStep("confirmation");
     } catch (error) {
@@ -182,7 +188,17 @@ export default function Cart() {
               <p className="text-muted-foreground text-sm">Total</p>
               <p className="text-3xl font-serif font-bold text-foreground">${totalPrice.toFixed(2)}</p>
             </div>
-            <Button size="lg" onClick={() => setStep("checkout")} className="rounded-full px-8 gap-2">
+            <Button
+              size="lg"
+              onClick={() => {
+                trackEvent("checkout_started", {
+                  item_count: items.length,
+                  total_amount: Number(totalPrice.toFixed(2)),
+                });
+                setStep("checkout");
+              }}
+              className="rounded-full px-8 gap-2"
+            >
               Checkout <ArrowRight className="w-4 h-4" />
             </Button>
           </div>

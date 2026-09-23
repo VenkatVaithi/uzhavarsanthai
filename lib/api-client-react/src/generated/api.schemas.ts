@@ -173,6 +173,33 @@ export interface AuthUserEnvelope {
   user: AuthUser | null;
 }
 
+export interface LocalRegistrationInput {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  firstName: string;
+  /** @maxLength 80 */
+  lastName?: string;
+  /** @maxLength 320 */
+  email: string;
+  /**
+     * @minLength 10
+     * @maxLength 128
+     */
+  password: string;
+}
+
+export interface LocalLoginInput {
+  /** @maxLength 320 */
+  email: string;
+  /**
+     * @minLength 1
+     * @maxLength 128
+     */
+  password: string;
+}
+
 export interface MobileTokenExchangeRequest {
   /** @minLength 1 */
   code: string;

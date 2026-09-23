@@ -6,6 +6,7 @@ import { Search, Sprout, Filter, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCart } from "../context/cart";
+import { trackEvent } from "../lib/analytics";
 
 export default function Products() {
   const [search, setSearch] = useState("");
@@ -142,7 +143,14 @@ export default function Products() {
                     <Button
                       size="sm"
                       disabled={!product.inStock}
-                      onClick={() => addItem(product, 1)}
+                      onClick={() => {
+                        addItem(product, 1);
+                        trackEvent("product_added_to_cart", {
+                          product_id: product.id,
+                          quantity: 1,
+                          source: "market_grid",
+                        });
+                      }}
                       className="rounded-full h-8 px-3 text-xs gap-1"
                     >
                       <ShoppingBag className="w-3 h-3" /> Add

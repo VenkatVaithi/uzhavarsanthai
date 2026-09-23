@@ -33,6 +33,8 @@ import type {
   HealthStatus,
   ListOrdersParams,
   ListProductsParams,
+  LocalLoginInput,
+  LocalRegistrationInput,
   LogoutSuccess,
   MarketStats,
   MobileTokenExchangeRequest,
@@ -133,6 +135,148 @@ export function useGetCurrentAuthUser<TData = Awaited<ReturnType<typeof getCurre
 
 
 
+
+export const getRegisterLocalAccountUrl = () => {
+
+
+
+
+  return `/api/auth/register`
+}
+
+/**
+ * @summary Register an account with email and password
+ */
+export const registerLocalAccount = async (localRegistrationInput: LocalRegistrationInput, options?: RequestInit): Promise<AuthUserEnvelope> => {
+
+  return customFetch<AuthUserEnvelope>(getRegisterLocalAccountUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      localRegistrationInput,)
+  }
+);}
+
+
+
+
+export const getRegisterLocalAccountMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerLocalAccount>>, TError,{data: BodyType<LocalRegistrationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof registerLocalAccount>>, TError,{data: BodyType<LocalRegistrationInput>}, TContext> => {
+
+const mutationKey = ['registerLocalAccount'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof registerLocalAccount>>, {data: BodyType<LocalRegistrationInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  registerLocalAccount(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RegisterLocalAccountMutationResult = NonNullable<Awaited<ReturnType<typeof registerLocalAccount>>>
+    export type RegisterLocalAccountMutationBody = BodyType<LocalRegistrationInput>
+    export type RegisterLocalAccountMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Register an account with email and password
+ */
+export const useRegisterLocalAccount = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof registerLocalAccount>>, TError,{data: BodyType<LocalRegistrationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof registerLocalAccount>>,
+        TError,
+        {data: BodyType<LocalRegistrationInput>},
+        TContext
+      > => {
+      return useMutation(getRegisterLocalAccountMutationOptions(options));
+    }
+
+export const getLoginLocalAccountUrl = () => {
+
+
+
+
+  return `/api/auth/login`
+}
+
+/**
+ * @summary Authenticate with email and password
+ */
+export const loginLocalAccount = async (localLoginInput: LocalLoginInput, options?: RequestInit): Promise<AuthUserEnvelope> => {
+
+  return customFetch<AuthUserEnvelope>(getLoginLocalAccountUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      localLoginInput,)
+  }
+);}
+
+
+
+
+export const getLoginLocalAccountMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof loginLocalAccount>>, TError,{data: BodyType<LocalLoginInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof loginLocalAccount>>, TError,{data: BodyType<LocalLoginInput>}, TContext> => {
+
+const mutationKey = ['loginLocalAccount'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof loginLocalAccount>>, {data: BodyType<LocalLoginInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  loginLocalAccount(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LoginLocalAccountMutationResult = NonNullable<Awaited<ReturnType<typeof loginLocalAccount>>>
+    export type LoginLocalAccountMutationBody = BodyType<LocalLoginInput>
+    export type LoginLocalAccountMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Authenticate with email and password
+ */
+export const useLoginLocalAccount = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof loginLocalAccount>>, TError,{data: BodyType<LocalLoginInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof loginLocalAccount>>,
+        TError,
+        {data: BodyType<LocalLoginInput>},
+        TContext
+      > => {
+      return useMutation(getLoginLocalAccountMutationOptions(options));
+    }
 
 export const getBeginBrowserLoginUrl = (params?: BeginBrowserLoginParams,) => {
   const normalizedParams = new URLSearchParams();
@@ -311,7 +455,7 @@ export const getLogoutBrowserSessionUrl = () => {
 }
 
 /**
- * @summary Clear the session and begin OIDC logout
+ * @summary Clear the current local or OIDC session
  */
 export const logoutBrowserSession = async ( options?: RequestInit): Promise<unknown> => {
 
@@ -358,7 +502,7 @@ export type LogoutBrowserSessionQueryError = ErrorType<void>
 
 
 /**
- * @summary Clear the session and begin OIDC logout
+ * @summary Clear the current local or OIDC session
  */
 
 export function useLogoutBrowserSession<TData = Awaited<ReturnType<typeof logoutBrowserSession>>, TError = ErrorType<void>>(

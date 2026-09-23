@@ -1,0 +1,2 @@
+- [GitHub check-in connector behavior](github-checkin-connector.md) — large Git tree writes and executable HTML payloads may be blocked by the connector proxy.
+- [Database SSL modes](database-ssl-environment.md) — development Postgres does not support SSL; enforce verify-full only for production connections.

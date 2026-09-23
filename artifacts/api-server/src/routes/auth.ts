@@ -1,16 +1,22 @@
 import * as oidc from "openid-client";
+import { createHash, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
+import { promisify } from "node:util";
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
   GetCurrentAuthUserResponse,
+  RegisterLocalAccountBody,
+  LoginLocalAccountBody,
   ExchangeMobileAuthorizationCodeBody,
   ExchangeMobileAuthorizationCodeResponse,
   LogoutMobileSessionResponse,
 } from "@workspace/api-zod";
-import { db, usersTable } from "@workspace/db";
+import { authRateLimitsTable, db, localCredentialsTable, usersTable } from "@workspace/db";
+import { and, eq, gt, lt, sql } from "drizzle-orm";
 import {
   clearSession,
   getOidcConfig,
   getSessionId,
+  getSession,
   createSession,
   deleteSession,
   SESSION_COOKIE,
@@ -20,14 +26,23 @@ import {
 } from "../lib/auth";
 
 const OIDC_COOKIE_TTL = 10 * 60 * 1000;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const MAX_LOGIN_ATTEMPTS = 5;
+const MAX_IP_LOGIN_ATTEMPTS = 50;
+const REGISTRATION_WINDOW_MS = 60 * 60 * 1000;
+const MAX_REGISTRATIONS_PER_IP = 10;
+const scryptAsync = promisify(scrypt);
 
 const router: IRouter = Router();
 
-function getOrigin(req: Request): string {
-  const proto = req.headers["x-forwarded-proto"] || "https";
-  const host =
-    req.headers["x-forwarded-host"] || req.headers["host"] || "localhost";
-  return `${proto}://${host}`;
+function getOrigin(): string {
+  if (process.env.NODE_ENV === "production") {
+    return process.env.PUBLIC_APP_ORIGIN ?? "https://web-build--venkatesanvaith.replit.app";
+  }
+  if (process.env.REPLIT_DEV_DOMAIN) {
+    return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+  }
+  return "http://localhost:19504";
 }
 
 function setSessionCookie(res: Response, sid: string) {
@@ -51,16 +66,119 @@ function setOidcCookie(res: Response, name: string, value: string) {
 }
 
 function getSafeReturnTo(value: unknown): string {
-  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) {
-    return "/";
+  if (value === "/") return "/";
+  if (value === "/farmer/portal") return "/farmer/portal";
+  return "/";
+}
+
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16);
+  const derivedKey = (await scryptAsync(password, salt, 64)) as Buffer;
+  return `scrypt$${salt.toString("hex")}$${derivedKey.toString("hex")}`;
+}
+
+async function verifyPassword(password: string, storedHash: string): Promise<boolean> {
+  const [algorithm, saltHex, hashHex] = storedHash.split("$");
+  if (algorithm !== "scrypt" || !saltHex || !hashHex) return false;
+
+  try {
+    const expected = Buffer.from(hashHex, "hex");
+    const actual = (await scryptAsync(
+      password,
+      Buffer.from(saltHex, "hex"),
+      expected.length,
+    )) as Buffer;
+    return actual.length === expected.length && timingSafeEqual(actual, expected);
+  } catch {
+    return false;
   }
-  return value;
+}
+
+const dummyPasswordHash = hashPassword(randomBytes(32).toString("hex"));
+
+function getRateLimitKey(...parts: string[]): string {
+  return createHash("sha256").update(parts.join(":")).digest("hex");
+}
+
+function getRequestIp(req: Request): string {
+  return req.ip ?? req.socket.remoteAddress ?? "unknown";
+}
+
+async function isRateLimited(key: string, maximum: number): Promise<boolean> {
+  const [entry] = await db
+    .select({ attempts: authRateLimitsTable.attempts })
+    .from(authRateLimitsTable)
+    .where(
+      and(
+        eq(authRateLimitsTable.key, key),
+        gt(authRateLimitsTable.resetAt, new Date()),
+      ),
+    )
+    .limit(1);
+  return (entry?.attempts ?? 0) >= maximum;
+}
+
+async function recordRateLimitAttempt(key: string, windowMs: number): Promise<number> {
+  await db
+    .delete(authRateLimitsTable)
+    .where(lt(authRateLimitsTable.resetAt, new Date(Date.now() - 24 * 60 * 60 * 1000)));
+
+  const resetAt = new Date(Date.now() + windowMs);
+  const [entry] = await db
+    .insert(authRateLimitsTable)
+    .values({ key, attempts: 1, resetAt })
+    .onConflictDoUpdate({
+      target: authRateLimitsTable.key,
+      set: {
+        attempts: sql`CASE WHEN ${authRateLimitsTable.resetAt} <= now() THEN 1 ELSE ${authRateLimitsTable.attempts} + 1 END`,
+        resetAt: sql`CASE WHEN ${authRateLimitsTable.resetAt} <= now() THEN ${resetAt} ELSE ${authRateLimitsTable.resetAt} END`,
+        updatedAt: new Date(),
+      },
+    })
+    .returning({ attempts: authRateLimitsTable.attempts });
+  return entry.attempts;
+}
+
+async function clearRateLimit(key: string): Promise<void> {
+  await db.delete(authRateLimitsTable).where(eq(authRateLimitsTable.key, key));
+}
+
+function toAuthUser(user: typeof usersTable.$inferSelect) {
+  return {
+    id: user.id,
+    email: user.email,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    profileImageUrl: user.profileImageUrl,
+  };
+}
+
+async function startLocalSession(
+  req: Request,
+  res: Response,
+  user: typeof usersTable.$inferSelect,
+) {
+  const authUser = toAuthUser(user);
+  const currentSid = getSessionId(req);
+  if (currentSid) await clearSession(res, currentSid);
+  const sid = await createSession({
+    provider: "local",
+    user: authUser,
+  });
+  setSessionCookie(res, sid);
+  return authUser;
 }
 
 async function upsertUser(claims: Record<string, unknown>) {
+  const normalizedEmail =
+    typeof claims.email === "string" ? normalizeEmail(claims.email) : null;
   const userData = {
     id: claims.sub as string,
-    email: (claims.email as string) || null,
+    email: normalizedEmail,
     firstName: (claims.first_name as string) || null,
     lastName: (claims.last_name as string) || null,
     profileImageUrl: (claims.profile_image_url || claims.picture) as
@@ -68,18 +186,39 @@ async function upsertUser(claims: Record<string, unknown>) {
       | null,
   };
 
-  const [user] = await db
-    .insert(usersTable)
-    .values(userData)
-    .onConflictDoUpdate({
-      target: usersTable.id,
-      set: {
-        ...userData,
-        updatedAt: new Date(),
-      },
-    })
-    .returning();
-  return user;
+  if (normalizedEmail) {
+    const [emailOwner] = await db
+      .select({ id: usersTable.id })
+      .from(usersTable)
+      .where(sql`lower(${usersTable.email}) = ${normalizedEmail}`)
+      .limit(1);
+    if (emailOwner && emailOwner.id !== userData.id) return null;
+  }
+
+  try {
+    const [user] = await db
+      .insert(usersTable)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: usersTable.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
+  } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "23505"
+    ) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 router.get("/auth/user", (req: Request, res: Response) => {
@@ -90,9 +229,124 @@ router.get("/auth/user", (req: Request, res: Response) => {
   );
 });
 
+router.post("/auth/register", async (req: Request, res: Response): Promise<void> => {
+  const parsed = RegisterLocalAccountBody.safeParse(req.body);
+  if (!parsed.success || !parsed.data.firstName.trim()) {
+    res.status(400).json({ error: "Please provide valid registration details." });
+    return;
+  }
+
+  const email = normalizeEmail(parsed.data.email);
+  const registrationKey = getRateLimitKey("register", getRequestIp(req));
+  const registrationAttempts = await recordRateLimitAttempt(
+    registrationKey,
+    REGISTRATION_WINDOW_MS,
+  );
+  if (registrationAttempts > MAX_REGISTRATIONS_PER_IP) {
+    res.status(429).json({ error: "Too many registration attempts. Please try again later." });
+    return;
+  }
+
+  const [existingUser] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(sql`lower(${usersTable.email}) = ${email}`)
+    .limit(1);
+
+  if (existingUser) {
+    res.status(409).json({ error: "An account with this email already exists." });
+    return;
+  }
+
+  const passwordHash = await hashPassword(parsed.data.password);
+
+  try {
+    const user = await db.transaction(async (tx) => {
+      const [createdUser] = await tx
+        .insert(usersTable)
+        .values({
+          email,
+          firstName: parsed.data.firstName.trim(),
+          lastName: parsed.data.lastName?.trim() || null,
+          profileImageUrl: null,
+        })
+        .returning();
+
+      await tx.insert(localCredentialsTable).values({
+        userId: createdUser.id,
+        email,
+        passwordHash,
+      });
+
+      return createdUser;
+    });
+
+    const authUser = await startLocalSession(req, res, user);
+    res.status(201).json(GetCurrentAuthUserResponse.parse({ user: authUser }));
+  } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      error.code === "23505"
+    ) {
+      res.status(409).json({ error: "An account with this email already exists." });
+      return;
+    }
+    throw error;
+  }
+});
+
+router.post("/auth/login", async (req: Request, res: Response): Promise<void> => {
+  const parsed = LoginLocalAccountBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Please provide a valid email and password." });
+    return;
+  }
+
+  const email = normalizeEmail(parsed.data.email);
+  const accountKey = getRateLimitKey("login-account", email);
+  const ipKey = getRateLimitKey("login-ip", getRequestIp(req));
+  if (
+    (await isRateLimited(accountKey, MAX_LOGIN_ATTEMPTS)) ||
+    (await isRateLimited(ipKey, MAX_IP_LOGIN_ATTEMPTS))
+  ) {
+    res.status(429).json({ error: "Too many attempts. Please try again in 15 minutes." });
+    return;
+  }
+
+  const [credential] = await db
+    .select({
+      passwordHash: localCredentialsTable.passwordHash,
+      user: usersTable,
+    })
+    .from(localCredentialsTable)
+    .innerJoin(usersTable, eq(localCredentialsTable.userId, usersTable.id))
+    .where(eq(localCredentialsTable.email, email))
+    .limit(1);
+
+  const passwordMatches = await verifyPassword(
+    parsed.data.password,
+    credential?.passwordHash ?? (await dummyPasswordHash),
+  );
+
+  if (!credential || !passwordMatches) {
+    await Promise.all([
+      recordRateLimitAttempt(accountKey, LOGIN_WINDOW_MS),
+      recordRateLimitAttempt(ipKey, LOGIN_WINDOW_MS),
+    ]);
+    res.status(401).json({ error: "Email or password is incorrect." });
+    return;
+  }
+
+  await clearRateLimit(accountKey);
+  const authUser = await startLocalSession(req, res, credential.user);
+  res.json(GetCurrentAuthUserResponse.parse({ user: authUser }));
+});
+
 router.get("/login", async (req: Request, res: Response) => {
   const config = await getOidcConfig();
-  const callbackUrl = `${getOrigin(req)}/api/callback`;
+  const callbackUrl = `${getOrigin()}/api/callback`;
 
   const returnTo = getSafeReturnTo(req.query.returnTo);
 
@@ -123,7 +377,7 @@ router.get("/login", async (req: Request, res: Response) => {
 // parameters not expressed in the schema.
 router.get("/callback", async (req: Request, res: Response) => {
   const config = await getOidcConfig();
-  const callbackUrl = `${getOrigin(req)}/api/callback`;
+  const callbackUrl = `${getOrigin()}/api/callback`;
 
   const codeVerifier = req.cookies?.code_verifier;
   const nonce = req.cookies?.nonce;
@@ -167,9 +421,14 @@ router.get("/callback", async (req: Request, res: Response) => {
   const dbUser = await upsertUser(
     claims as unknown as Record<string, unknown>,
   );
+  if (!dbUser) {
+    res.redirect("/login?error=email_in_use");
+    return;
+  }
 
   const now = Math.floor(Date.now() / 1000);
   const sessionData: SessionData = {
+    provider: "replit",
     user: {
       id: dbUser.id,
       email: dbUser.email,
@@ -188,12 +447,17 @@ router.get("/callback", async (req: Request, res: Response) => {
 });
 
 router.get("/logout", async (req: Request, res: Response) => {
-  const config = await getOidcConfig();
-  const origin = getOrigin(req);
-
   const sid = getSessionId(req);
+  const session = sid ? await getSession(sid) : null;
   await clearSession(res, sid);
 
+  if (session?.provider === "local") {
+    res.redirect(getSafeReturnTo(req.query.returnTo));
+    return;
+  }
+
+  const config = await getOidcConfig();
+  const origin = getOrigin();
   const endSessionUrl = oidc.buildEndSessionUrl(config, {
     client_id: process.env.REPL_ID!,
     post_logout_redirect_uri: origin,
@@ -237,9 +501,16 @@ router.post(
       const dbUser = await upsertUser(
         claims as unknown as Record<string, unknown>,
       );
+      if (!dbUser) {
+        res.status(409).json({
+          error: "This email is already registered with another sign-in method",
+        });
+        return;
+      }
 
       const now = Math.floor(Date.now() / 1000);
       const sessionData: SessionData = {
+        provider: "replit",
         user: {
           id: dbUser.id,
           email: dbUser.email,

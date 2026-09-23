@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "wouter";
 import { useGetProduct, useGetFarmer, getGetProductQueryKey, getGetFarmerQueryKey } from "@workspace/api-client-react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Sprout, MapPin, ShoppingBag, Minus, Plus, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "../context/cart";
+import { trackEvent } from "../lib/analytics";
 
 export default function ProductDetail() {
   const { id } = useParams<{ id: string }>();
@@ -14,10 +15,27 @@ export default function ProductDetail() {
   const { addItem } = useCart();
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
+  const viewedProductId = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (product && viewedProductId.current !== product.id) {
+      viewedProductId.current = product.id;
+      trackEvent("product_viewed", {
+        product_id: product.id,
+        farmer_id: product.farmerId,
+        price: product.price,
+      });
+    }
+  }, [product]);
 
   const handleAdd = () => {
     if (!product) return;
     addItem(product, qty);
+    trackEvent("product_added_to_cart", {
+      product_id: product.id,
+      quantity: qty,
+      source: "product_detail",
+    });
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
   };
