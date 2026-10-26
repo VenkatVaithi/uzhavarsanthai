@@ -9,132 +9,6 @@ import * as zod from 'zod';
 
 
 /**
- * @summary Get the currently authenticated user
- */
-export const GetCurrentAuthUserHeader = zod.object({
-  "Authorization": zod.string().optional().describe('Opaque session token — `Bearer <sid>`.')
-})
-
-export const GetCurrentAuthUserResponse = zod.object({
-  "user": zod.union([zod.object({
-  "id": zod.string(),
-  "email": zod.string().email().nullable(),
-  "firstName": zod.string().nullable(),
-  "lastName": zod.string().nullable(),
-  "profileImageUrl": zod.string().nullable()
-}),zod.null()])
-})
-
-
-/**
- * @summary Register an account with email and password
- */
-export const registerLocalAccountBodyFirstNameMax = 80;
-
-export const registerLocalAccountBodyLastNameMax = 80;
-
-export const registerLocalAccountBodyEmailMax = 320;
-
-export const registerLocalAccountBodyPasswordMin = 10;
-export const registerLocalAccountBodyPasswordMax = 128;
-
-
-
-export const RegisterLocalAccountBody = zod.object({
-  "firstName": zod.string().min(1).max(registerLocalAccountBodyFirstNameMax),
-  "lastName": zod.string().max(registerLocalAccountBodyLastNameMax).optional(),
-  "email": zod.string().email().max(registerLocalAccountBodyEmailMax),
-  "password": zod.string().min(registerLocalAccountBodyPasswordMin).max(registerLocalAccountBodyPasswordMax)
-})
-
-
-/**
- * @summary Authenticate with email and password
- */
-export const loginLocalAccountBodyEmailMax = 320;
-
-export const loginLocalAccountBodyPasswordMax = 128;
-
-
-
-export const LoginLocalAccountBody = zod.object({
-  "email": zod.string().email().max(loginLocalAccountBodyEmailMax),
-  "password": zod.string().min(1).max(loginLocalAccountBodyPasswordMax)
-})
-
-export const LoginLocalAccountResponse = zod.object({
-  "user": zod.union([zod.object({
-  "id": zod.string(),
-  "email": zod.string().email().nullable(),
-  "firstName": zod.string().nullable(),
-  "lastName": zod.string().nullable(),
-  "profileImageUrl": zod.string().nullable()
-}),zod.null()])
-})
-
-
-/**
- * @summary Start the browser OIDC login flow
- */
-export const BeginBrowserLoginQueryParams = zod.object({
-  "returnTo": zod.coerce.string().optional()
-})
-
-
-/**
- * @summary Complete the browser OIDC login flow
- */
-export const HandleBrowserLoginCallbackQueryParams = zod.object({
-  "code": zod.coerce.string().optional(),
-  "state": zod.coerce.string().optional(),
-  "iss": zod.coerce.string().url().optional()
-})
-
-
-/**
- * @summary Clear the current local or OIDC session
- */
-export const LogoutBrowserSessionHeader = zod.object({
-  "Authorization": zod.string().optional().describe('Opaque session token — `Bearer <sid>`.')
-})
-
-
-/**
- * @summary Exchange a mobile OIDC code for a session token
- */
-
-
-
-
-
-
-
-export const ExchangeMobileAuthorizationCodeBody = zod.object({
-  "code": zod.string().min(1),
-  "code_verifier": zod.string().min(1),
-  "redirect_uri": zod.string().url().min(1),
-  "state": zod.string().min(1),
-  "nonce": zod.string().min(1).optional()
-})
-
-export const ExchangeMobileAuthorizationCodeResponse = zod.object({
-  "token": zod.string()
-})
-
-
-/**
- * @summary Delete a mobile session token
- */
-export const LogoutMobileSessionHeader = zod.object({
-  "Authorization": zod.string().optional().describe('Opaque session token — `Bearer <sid>`.')
-})
-
-export const LogoutMobileSessionResponse = zod.object({
-  "success": zod.boolean()
-})
-
-
-/**
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
@@ -474,6 +348,13 @@ export const GetOrderResponse = zod.object({
 
 
 /**
+ * Requires an authenticated Clerk session and server-managed Clerk user
+publicMetadata. Administrators (role=admin) may update any order.
+Farmers (role=farmer with a positive integer farmerId) may update only
+non-empty orders whose products all belong to that farm. Mixed-farm
+orders require an administrator. Buyers and accounts without a valid
+grant are forbidden. Request-supplied roles and farm IDs are ignored.
+
  * @summary Update order status
  */
 export const UpdateOrderStatusParams = zod.object({

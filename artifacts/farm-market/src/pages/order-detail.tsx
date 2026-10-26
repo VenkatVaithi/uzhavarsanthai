@@ -1,6 +1,6 @@
 import { Link, useParams, useLocation } from "wouter";
 import { useGetOrder, getGetOrderQueryKey } from "@workspace/api-client-react";
-import { useAuth } from "@workspace/replit-auth-web";
+import { useAuth } from "@clerk/react";
 import { motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -55,17 +55,17 @@ const steps = ["pending", "confirmed", "shipped", "delivered"] as const;
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const orderId = Number(id);
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isLoaded, isSignedIn } = useAuth();
   const [, navigate] = useLocation();
 
   const { data: order, isLoading: orderLoading } = useGetOrder(orderId, {
     query: {
-      enabled: !!orderId && isAuthenticated,
+      enabled: !!orderId && !!isSignedIn,
       queryKey: getGetOrderQueryKey(orderId),
     },
   });
 
-  if (authLoading || orderLoading) {
+  if (!isLoaded || orderLoading) {
     return (
       <div className="container mx-auto px-4 py-12 max-w-2xl animate-pulse">
         <div className="h-5 bg-muted rounded w-24 mb-8" />
@@ -80,7 +80,7 @@ export default function OrderDetail() {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!isSignedIn) {
     return (
       <div className="container mx-auto px-4 py-20 max-w-lg text-center">
         <div className="flex justify-center mb-6">
@@ -89,13 +89,13 @@ export default function OrderDetail() {
           </div>
         </div>
         <h1 className="font-serif text-2xl font-bold text-foreground mb-3">
-          Sign in to view this order
+          Log in to view this order
         </h1>
         <p className="text-muted-foreground mb-6">
           Order details are only visible to the buyer who placed them.
         </p>
-        <Button onClick={() => navigate("/login")} className="gap-2">
-          Sign in <ArrowRight className="w-4 h-4" />
+        <Button onClick={() => navigate("/sign-in")} className="gap-2">
+          Log in <ArrowRight className="w-4 h-4" />
         </Button>
       </div>
     );
@@ -126,7 +126,7 @@ export default function OrderDetail() {
   const isCancelled = order.status === "cancelled";
 
   return (
-    <div className="container mx-auto px-4 py-12 max-w-2xl">
+    <div className="container mx-auto px-4 py-12 max-w-2xl" data-testid="order-detail-authenticated">
       <Link
         href="/orders"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors mb-8"

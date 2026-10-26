@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useListOrders, getListOrdersQueryKey } from "@workspace/api-client-react";
-import { useAuth } from "@workspace/replit-auth-web";
+import { useAuth, useUser } from "@clerk/react";
 import { motion } from "framer-motion";
 import {
   ShoppingBag,
@@ -59,18 +59,20 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function Orders() {
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { user } = useUser();
+  const { isLoaded, isSignedIn } = useAuth();
   const [, navigate] = useLocation();
 
-  const params = { buyerEmail: user?.email ?? "" };
+  const email = user?.primaryEmailAddress?.emailAddress ?? "";
+  const params = { buyerEmail: email };
   const { data: orders, isLoading: ordersLoading } = useListOrders(params, {
     query: {
-      enabled: !!user?.email,
+      enabled: isLoaded && !!isSignedIn && !!email,
       queryKey: getListOrdersQueryKey(params),
     },
   });
 
-  if (authLoading) {
+  if (!isLoaded) {
     return (
       <div className="container mx-auto px-4 py-12 max-w-3xl space-y-4 animate-pulse">
         <div className="h-8 bg-muted rounded w-48" />
@@ -81,7 +83,7 @@ export default function Orders() {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!isSignedIn) {
     return (
       <div className="container mx-auto px-4 py-20 max-w-lg text-center">
         <div className="flex justify-center mb-6">
@@ -90,23 +92,23 @@ export default function Orders() {
           </div>
         </div>
         <h1 className="font-serif text-2xl font-bold text-foreground mb-3">
-          Sign in to view your orders
+          Log in to view your orders
         </h1>
         <p className="text-muted-foreground mb-6">
-          Your order history is tied to your account. Sign in to see everything you've ordered.
+          Your order history is tied to your account. Log in to see everything you've ordered.
         </p>
-        <Button onClick={() => navigate("/login")} className="gap-2">
-          Sign in <ArrowRight className="w-4 h-4" />
+        <Button onClick={() => navigate("/sign-in")} className="gap-2">
+          Log in <ArrowRight className="w-4 h-4" />
         </Button>
       </div>
     );
   }
 
   const isLoading = ordersLoading;
-  const displayName = user?.firstName ?? user?.email ?? "there";
+  const displayName = user?.firstName ?? email ?? "there";
 
   return (
-    <div className="container mx-auto px-4 py-12 max-w-3xl">
+    <div className="container mx-auto px-4 py-12 max-w-3xl" data-testid="orders-authenticated">
       {/* Header */}
       <div className="mb-8">
         <h1 className="font-serif text-4xl font-bold text-foreground mb-1">

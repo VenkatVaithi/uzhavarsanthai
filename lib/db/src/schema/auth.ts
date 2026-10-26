@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { index, integer, jsonb, pgTable, timestamp, uniqueIndex, varchar } from "drizzle-orm/pg-core";
 
-// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
+// Retained for compatibility with existing data; Clerk owns active sessions.
 export const sessionsTable = pgTable(
   "sessions",
   {
@@ -12,7 +12,7 @@ export const sessionsTable = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
+// Local authorization and app state remain keyed to this table under Clerk.
 export const usersTable = pgTable(
   "users",
   {

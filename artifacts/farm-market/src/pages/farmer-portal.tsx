@@ -1,16 +1,17 @@
 import { useLocation } from "wouter";
-import { useAuth } from "@workspace/replit-auth-web";
+import { useAuth, useUser } from "@clerk/react";
 import { useListFarmers } from "@workspace/api-client-react";
 import { Leaf, Plus, User, ArrowRight, ShoppingBag, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 
 export default function FarmerPortal() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user } = useUser();
+  const { isLoaded, isSignedIn } = useAuth();
   const { data: farmers } = useListFarmers();
   const [, navigate] = useLocation();
 
-  if (isLoading) {
+  if (!isLoaded) {
     return (
       <div className="container mx-auto px-4 py-16 max-w-3xl animate-pulse">
         <div className="h-8 bg-muted rounded w-48 mb-4" />
@@ -19,7 +20,7 @@ export default function FarmerPortal() {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!isSignedIn) {
     return (
       <div className="container mx-auto px-4 py-20 max-w-lg text-center">
         <div className="flex justify-center mb-6">
@@ -27,10 +28,10 @@ export default function FarmerPortal() {
             <LogIn className="w-10 h-10 text-primary" />
           </div>
         </div>
-        <h1 className="font-serif text-2xl font-bold text-foreground mb-3">Sign in to access the Farmer Portal</h1>
-        <p className="text-muted-foreground mb-6">You need to sign in as a farmer to manage your profile and products.</p>
-        <Button onClick={() => navigate("/login")} className="gap-2">
-          Sign in <ArrowRight className="w-4 h-4" />
+        <h1 className="font-serif text-2xl font-bold text-foreground mb-3">Log in to access the Farmer Portal</h1>
+        <p className="text-muted-foreground mb-6">You need to log in as a farmer to manage your profile and products.</p>
+        <Button onClick={() => navigate("/sign-in")} className="gap-2">
+          Log in <ArrowRight className="w-4 h-4" />
         </Button>
       </div>
     );
@@ -45,15 +46,15 @@ export default function FarmerPortal() {
 
   const displayName = user?.firstName
     ? `${user.firstName}${user.lastName ? " " + user.lastName : ""}`
-    : user?.email ?? "Farmer";
+    : user?.primaryEmailAddress?.emailAddress ?? "Farmer";
 
   return (
-    <div className="container mx-auto px-4 py-12 max-w-3xl">
+    <div className="container mx-auto px-4 py-12 max-w-3xl" data-testid="farmer-portal-authenticated">
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
         {/* Header */}
         <div className="flex items-center gap-4 mb-10">
-          {user?.profileImageUrl ? (
-            <img src={user.profileImageUrl} alt={displayName} className="w-14 h-14 rounded-full object-cover border-2 border-border" />
+          {user?.imageUrl ? (
+            <img src={user.imageUrl} alt={displayName} className="w-14 h-14 rounded-full object-cover border-2 border-border" />
           ) : (
             <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
               <User className="w-7 h-7 text-primary" />

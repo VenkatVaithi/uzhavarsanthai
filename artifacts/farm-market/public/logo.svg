@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 64" role="img" aria-labelledby="title">
+  <title id="title">Ulavar Santhai</title>
+  <rect width="64" height="64" rx="18" fill="#4d704d"/>
+  <path d="M18 40c14 1 24-8 29-25 5 18-3 31-20 32-5 0-8-2-9-7Z" fill="#fffdf7"/>
+  <path d="M20 44c8-10 15-16 25-23" fill="none" stroke="#d7ad52" stroke-width="3" stroke-linecap="round"/>
+  <text x="76" y="39" fill="#382f27" font-family="Georgia, serif" font-size="25" font-weight="700">Ulavar Santhai</text>
+</svg>

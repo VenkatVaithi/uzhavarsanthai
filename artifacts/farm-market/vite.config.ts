@@ -26,11 +26,20 @@ if (!basePath) {
   );
 }
 
+if (
+  process.env.NODE_ENV === "production" &&
+  !process.env.VITE_CLERK_PROXY_URL
+) {
+  throw new Error(
+    "VITE_CLERK_PROXY_URL is required for production Clerk proxying.",
+  );
+}
+
 export default defineConfig({
   base: basePath,
   plugins: [
     react(),
-    tailwindcss(),
+    tailwindcss({ optimize: false }),
     runtimeErrorOverlay(),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined

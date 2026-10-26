@@ -3,6 +3,8 @@ import { db } from "@workspace/db";
 import { ordersTable, orderItemsTable, productsTable } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
 import { z } from "zod";
+import { requireAuth } from "../middlewares/requireAuth";
+import { requireOrderManager } from "../middlewares/requireOrderManager";
 
 const router = Router();
 
@@ -38,13 +40,17 @@ async function getOrderWithItems(orderId: number) {
   };
 }
 
-router.get("/orders", async (req, res): Promise<void> => {
-  const { buyerEmail } = req.query;
-  let query = db.select().from(ordersTable).orderBy(ordersTable.createdAt).$dynamic();
-  if (typeof buyerEmail === "string" && buyerEmail.trim()) {
-    query = query.where(eq(ordersTable.buyerEmail, buyerEmail.trim()));
+router.get("/orders", requireAuth, async (req, res): Promise<void> => {
+  const buyerEmail = req.dbUser?.email;
+  if (!buyerEmail) {
+    res.json([]);
+    return;
   }
-  const orders = await query;
+  const orders = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.buyerEmail, buyerEmail))
+    .orderBy(ordersTable.createdAt);
   const results = await Promise.all(orders.map(o => getOrderWithItems(o.id)));
   res.json(results.filter(Boolean));
 });
@@ -103,23 +109,46 @@ router.post("/orders", async (req, res): Promise<void> => {
   res.status(201).json(result);
 });
 
-router.get("/orders/:id", async (req, res): Promise<void> => {
+router.get("/orders/:id", requireAuth, async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   const order = await getOrderWithItems(id);
-  if (!order) {
+  if (!order || !req.dbUser?.email || order.buyerEmail !== req.dbUser.email) {
     res.status(404).json({ error: "Order not found" });
     return;
   }
   res.json(order);
 });
 
-router.patch("/orders/:id", async (req, res): Promise<void> => {
+router.patch("/orders/:id", requireAuth, requireOrderManager, async (req, res): Promise<void> => {
   const id = Number(req.params.id);
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid order ID" });
+    return;
+  }
   const schema = z.object({ status: z.string().min(1) });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid input" });
     return;
+  }
+  const manager = req.orderManager;
+  if (!manager) {
+    res.status(403).json({ error: "Order management access required" });
+    return;
+  }
+  if (manager.role === "farmer") {
+    const items = await db
+      .select({ farmerId: productsTable.farmerId })
+      .from(orderItemsTable)
+      .leftJoin(productsTable, eq(orderItemsTable.productId, productsTable.id))
+      .where(eq(orderItemsTable.orderId, id));
+
+    // Status is order-wide: owning just one item must not grant control over
+    // another farm's fulfillment. Empty/unresolvable orders also fail closed.
+    if (!items.length || items.some(item => item.farmerId !== manager.farmerId)) {
+      res.status(403).json({ error: "Order is not exclusively assigned to your farm" });
+      return;
+    }
   }
   const [updated] = await db.update(ordersTable).set({ status: parsed.data.status }).where(eq(ordersTable.id, id)).returning();
   if (!updated) {

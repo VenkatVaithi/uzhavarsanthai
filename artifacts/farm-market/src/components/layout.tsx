@@ -2,12 +2,15 @@ import React from 'react';
 import { Link, useLocation } from 'wouter';
 import { ShoppingBag, Menu, X, Leaf, ChevronDown, UserPlus, LogIn, LogOut, User } from 'lucide-react';
 import { useCart } from '../context/cart';
-import { useAuth } from '@workspace/replit-auth-web';
+import { useClerk, useUser } from '@clerk/react';
 import { Button } from '@/components/ui/button';
+
+const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { totalItems } = useCart();
-  const { user, isAuthenticated, login, logout } = useAuth();
+  const { user, isSignedIn } = useUser();
+  const { signOut } = useClerk();
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [farmersOpen, setFarmersOpen] = React.useState(false);
@@ -107,20 +110,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </Link>
 
             {/* Desktop auth */}
-            <div className="hidden md:block">
-              {isAuthenticated && user ? (
+            <div className="hidden md:flex items-center gap-2">
+              {isSignedIn && user ? (
                 <div ref={userMenuRef} className="relative">
                   <button
                     onClick={() => setUserMenuOpen((o) => !o)}
                     className="flex items-center gap-2 rounded-full border border-border px-3 py-1.5 hover:bg-muted transition-colors"
                   >
-                    {user.profileImageUrl ? (
-                      <img src={user.profileImageUrl} alt={user.firstName ?? ''} className="w-5 h-5 rounded-full object-cover" />
+                    {user.imageUrl ? (
+                      <img src={user.imageUrl} alt={user.firstName ?? ''} className="w-5 h-5 rounded-full object-cover" />
                     ) : (
                       <User className="w-4 h-4 text-muted-foreground" />
                     )}
                     <span className="text-sm font-medium text-foreground max-w-[100px] truncate">
-                      {user.firstName ?? user.email ?? 'Account'}
+                      {user.firstName ?? user.primaryEmailAddress?.emailAddress ?? 'Account'}
                     </span>
                     <ChevronDown className={`w-3 h-3 text-muted-foreground transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
@@ -136,7 +139,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                       </Link>
                       <div className="my-1 border-t border-border" />
                       <button
-                        onClick={() => { setUserMenuOpen(false); logout(); }}
+                        onClick={() => { setUserMenuOpen(false); void signOut({ redirectUrl: basePath || "/" }); }}
                         className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors"
                       >
                         <LogOut className="w-4 h-4 text-muted-foreground" />
@@ -146,9 +149,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   )}
                 </div>
               ) : (
-                <Button variant="outline" size="sm" onClick={login} className="gap-1.5">
-                  <LogIn className="w-4 h-4" /> Sign in
-                </Button>
+                <>
+                  <Button variant="outline" size="sm" asChild className="gap-1.5">
+                    <Link href="/sign-in">
+                      <LogIn className="w-4 h-4" /> Log in
+                    </Link>
+                  </Button>
+                </>
               )}
             </div>
 
@@ -191,25 +198,26 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <UserPlus className="w-4 h-4" /> Register as a Farmer
             </Link>
             <div className="border-t border-border pt-2 mt-2">
-              {isAuthenticated && user ? (
+              {isSignedIn && user ? (
                 <>
                   <p className="text-xs text-muted-foreground mb-2 px-0.5">
-                    Signed in as {user.firstName ?? user.email ?? 'you'}
+                    Signed in as {user.firstName ?? user.primaryEmailAddress?.emailAddress ?? 'you'}
                   </p>
                   <button
-                    onClick={() => { setMobileMenuOpen(false); logout(); }}
+                    onClick={() => { setMobileMenuOpen(false); void signOut({ redirectUrl: basePath || "/" }); }}
                     className="flex items-center gap-2 text-base font-medium text-muted-foreground"
                   >
                     <LogOut className="w-4 h-4" /> Sign out
                   </button>
                 </>
               ) : (
-                <button
-                  onClick={() => { setMobileMenuOpen(false); login(); }}
+                <Link
+                  href="/sign-in"
+                  onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center gap-2 text-base font-medium text-muted-foreground"
                 >
-                  <LogIn className="w-4 h-4" /> Sign in
-                </button>
+                  <LogIn className="w-4 h-4" /> Log in
+                </Link>
               )}
             </div>
           </div>
